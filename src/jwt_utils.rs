@@ -56,5 +56,6 @@ pub fn get_cell() -> &'static OnceLock<JwtUtils> {
 }
 
 pub fn get() -> &'static JwtUtils {
+    // jwt_utils is already initialized at launch
     &INSTANCE.get().expect("jwt_utils should be initialized")
 }

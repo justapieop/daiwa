@@ -23,5 +23,6 @@ pub fn get_cell() -> &'static OnceLock<Config> {
 }
 
 pub fn get() -> &'static Config {
+    // config is already initialized at launch
     &INSTANCE.get().expect("config should be initialized")
 }
