@@ -2,24 +2,28 @@ use std::{error::Error, sync::OnceLock};
 
 use jsonwebtoken::Validation;
 use serde::{Deserialize, Serialize};
+use tracing::{debug, error, info};
 
-use crate::config;
+use crate::{config, get_config};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 struct Claims {
     sub: String,
 }
 
 pub struct JwtUtils {
     jwks_client: jwks::Jwks,
+    config: config::Config,
 }
 
 impl JwtUtils {
-    pub async fn initialize(jwks_url: String) -> Self {
+    pub async fn new(jwks_url: String) -> Self {
+        debug!("Config for JwtUtils: {:?}", get_config());
         Self {
             jwks_client: jwks::Jwks::from_jwks_url(jwks_url)
                 .await
                 .expect("JWKS_URL should be a valid URL pointing to JWKS"),
+            config: get_config().clone(),
         }
     }
 
@@ -40,24 +44,16 @@ impl JwtUtils {
         };
 
         let mut validation = Validation::new(header.alg);
-        validation.set_audience(&[config::get().jwks_iss.clone()]);
+        validation.set_audience(&[self.config.jwks_iss.clone()]);
 
         let decode = match jsonwebtoken::decode::<Claims>(&jwt, &jwk.decoding_key, &validation) {
             Ok(v) => v,
-            Err(e) => return Err(e.into()),
+            Err(e) => {
+                error!("JWT verification failed: {:?}", e);
+                return Err(e.into());
+            },
         };
 
         Ok(decode.claims.sub)
     }
-}
-
-static INSTANCE: OnceLock<JwtUtils> = OnceLock::new();
-
-pub fn get_cell() -> &'static OnceLock<JwtUtils> {
-    &INSTANCE
-}
-
-pub fn get() -> &'static JwtUtils {
-    // jwt_utils is already initialized at launch
-    &INSTANCE.get().expect("jwt_utils should be initialized")
 }

@@ -2,7 +2,11 @@ mod config;
 mod events;
 mod jwt_utils;
 
-use std::{error::Error, time::Duration};
+use std::{
+    error::Error,
+    sync::Arc,
+    time::Duration,
+};
 
 use axum::{
     Router,
@@ -12,21 +16,41 @@ use axum::{
 use reqwest::StatusCode;
 use socketioxide::SocketIo;
 use tokio::net::TcpListener;
+use tokio::sync::OnceCell;
 use tower_http::{
     auth::AsyncRequireAuthorizationLayer, compression::CompressionLayer, cors::CorsLayer,
     trace::TraceLayer,
 };
 use tracing::info;
 
+use crate::jwt_utils::JwtUtils;
+
+static CONFIG: OnceCell<config::Config> = OnceCell::const_new();
+static JWT_UTILS: OnceCell<Arc<JwtUtils>> = OnceCell::const_new();
+
+pub fn get_config() -> &'static config::Config {
+    CONFIG.get().expect("config should be initialized")
+}
+
+#[derive(Clone)]
+struct AppState {
+    jwt: Arc<JwtUtils>,
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let config = config::get_cell().get_or_init(|| config::Config::initialize());
+    dotenvy::dotenv().unwrap_or_default();
+    CONFIG.set(config::Config::new()).unwrap();
+    let config = get_config();
     tracing_subscriber::fmt::init();
     info!("Initializing daiwa WS server. Populating configuration");
 
     info!("Verifying JWKS");
-    let jwt_utils = jwt_utils::JwtUtils::initialize(config.jwks_url.clone()).await;
-    jwt_utils::get_cell().get_or_init(|| jwt_utils);
+
+    let jwt_utils = JwtUtils::new(config.jwks_url.clone()).await;
+    if let Err(_) = JWT_UTILS.set(Arc::new(jwt_utils)) {
+        panic!("JWT_UTILS already initialized");
+    }
 
     let (layer, io) = SocketIo::new_layer();
 
@@ -37,6 +61,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .layer(CorsLayer::new().max_age(Duration::from_secs(604800)))
         .layer(AsyncRequireAuthorizationLayer::new(
             |mut req: Request<Body>| async {
+                let jwt_utils = JWT_UTILS.get().unwrap().clone();
                 let headers = req.headers_mut();
 
                 let err_res = Response::builder()
@@ -61,7 +86,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 let jwt = tokens[1];
 
-                let sub = match jwt_utils::get().verify(jwt) {
+                let sub = match jwt_utils.verify(jwt) {
                     Ok(v) => v,
                     Err(_) => return Err(err_res),
                 };
