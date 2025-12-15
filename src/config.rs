@@ -7,10 +7,12 @@ pub struct Config {
 
 impl Config {
     pub fn initialize() -> Self {
+        dotenvy::dotenv().unwrap_or_default();
+
         Self {
             listen_address: env::var("LISTEN_ADDRESS")
                 .unwrap_or(String::from(DEFAULT_LISTEN_ADDRESS)),
-            jwks_url: env::var("JWKS_URL").expect("Missing JWKS_URL environment variable"),
+            jwks_url: env::var("JWKS_URL").expect("JWKS_URL should be set"),
         }
     }
 }
