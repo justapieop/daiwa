@@ -3,14 +3,15 @@ use std::{error::Error, sync::OnceLock};
 use jsonwebtoken::Validation;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+use crate::config;
+
+#[derive(Serialize, Deserialize, Debug)]
 struct Claims {
     sub: String,
 }
 
 pub struct JwtUtils {
     jwks_client: jwks::Jwks,
-    validation: Validation,
 }
 
 impl JwtUtils {
@@ -19,7 +20,6 @@ impl JwtUtils {
             jwks_client: jwks::Jwks::from_jwks_url(jwks_url)
                 .await
                 .expect("JWKS_URL should be a valid URL pointing to JWKS"),
-            validation: Validation::default(),
         }
     }
 
@@ -39,8 +39,10 @@ impl JwtUtils {
             None => return Err("".into()),
         };
 
-        let decode = match jsonwebtoken::decode::<Claims>(&jwt, &jwk.decoding_key, &self.validation)
-        {
+        let mut validation = Validation::new(header.alg);
+        validation.set_audience(&[config::get().jwks_iss.clone()]);
+
+        let decode = match jsonwebtoken::decode::<Claims>(&jwt, &jwk.decoding_key, &validation) {
             Ok(v) => v,
             Err(e) => return Err(e.into()),
         };
