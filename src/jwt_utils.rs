@@ -18,7 +18,7 @@ impl JwtUtils {
         Self {
             jwks_client: jwks::Jwks::from_jwks_url(jwks_url)
                 .await
-                .expect("Invalid JWKS_URL"),
+                .expect("JWKS_URL should be a valid URL pointing to JWKS"),
             validation: Validation::default(),
         }
     }
