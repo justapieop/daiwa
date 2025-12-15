@@ -1,6 +1,7 @@
 mod config;
 mod events;
 mod jwt_utils;
+mod logging;
 
 use std::{
     error::Error,
@@ -32,17 +33,12 @@ pub fn get_config() -> &'static config::Config {
     CONFIG.get().expect("config should be initialized")
 }
 
-#[derive(Clone)]
-struct AppState {
-    jwt: Arc<JwtUtils>,
-}
-
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv().unwrap_or_default();
     CONFIG.set(config::Config::new()).unwrap();
     let config = get_config();
-    tracing_subscriber::fmt::init();
+    logging::setup(&std::env::var("LOG_LEVEL").unwrap_or(String::from("info")), Some("%Y-%m-%d_%H-%M-%S.log")).unwrap();
     info!("Initializing daiwa WS server. Populating configuration");
 
     info!("Verifying JWKS");

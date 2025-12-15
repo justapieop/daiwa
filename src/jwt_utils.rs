@@ -1,8 +1,8 @@
-use std::{error::Error, sync::OnceLock};
+use std::error::Error;
 
 use jsonwebtoken::Validation;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 use crate::{config, get_config};
 

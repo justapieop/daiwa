@@ -22,3 +22,6 @@ target
 
 # Environment variables file
 .env
+
+# Logs
+log/
