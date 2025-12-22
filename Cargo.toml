@@ -1,0 +1,27 @@
+[package]
+name = "daiwa"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dotenvy = "0.15.7"
+jsonwebtoken = "9.3.1"
+jwks = "0.4.0"
+serde = { version = "1.0.228", features = ["derive"] }
+reqwest = { version = "0.12.25", default-features = false, features = [
+    "json",
+    "rustls-tls",
+] }
+tokio = { version = "1.48.0", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.8.7"
+socketioxide = { version = "0.18.0", features = ["state", "extensions"] }
+tower-http = { version = "0.6.8", features = [
+    "cors",
+    "compression-gzip",
+    "trace",
+    "auth",
+] }
+chrono = "0.4.42"
+validator = { version = "0.19", features = ["derive"] }
