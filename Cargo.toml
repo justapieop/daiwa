@@ -16,7 +16,7 @@ tokio = { version = "1.48.0", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.8.7"
-socketioxide = "0.18.0"
+socketioxide = { version = "0.18.0", features = ["state", "extensions"] }
 tower-http = { version = "0.6.8", features = [
     "cors",
     "compression-gzip",
@@ -24,3 +24,4 @@ tower-http = { version = "0.6.8", features = [
     "auth",
 ] }
 chrono = "0.4.42"
+validator = { version = "0.19", features = ["derive"] }
