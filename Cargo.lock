@@ -245,6 +245,7 @@ dependencies = [
  "jwks",
  "reqwest",
  "serde",
+ "serde_json",
  "socketioxide",
  "tokio",
  "tower-http",
@@ -367,6 +368,7 @@ dependencies = [
  "tokio-util",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -1482,6 +1484,7 @@ dependencies = [
  "tokio",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
