@@ -8,9 +8,11 @@ mod snowflake;
 use std::sync::Arc;
 use std::{error::Error, time::Duration};
 
-use axum::Router;
 use socketioxide::SocketIoBuilder;
 use socketioxide::handler::ConnectHandler;
+use sqlx::migrate::Migrator;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::{Pool, Postgres, migrate};
 use tokio::net::TcpListener;
 use tokio::sync::{Mutex, OnceCell};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
@@ -24,9 +26,11 @@ struct AppState {
     snowflake: Arc<Mutex<Snowflake>>,
     jwt_utils: Arc<JwtUtils>,
     session_manager: Arc<Mutex<SessionManager>>,
+    pg_pool: Arc<Pool<Postgres>>,
 }
 
 static CONFIG: OnceCell<config::Config> = OnceCell::const_new();
+static MIGRATOR: Migrator = migrate!();
 
 pub fn get_config() -> &'static config::Config {
     CONFIG.get().expect("config should be initialized")
@@ -39,12 +43,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .set(config::Config::new())
         .expect("config should be set");
     let config = get_config();
-    logging::setup(
-        &std::env::var("LOG_LEVEL").unwrap_or(String::from("info")),
-        Some("%Y-%m-%d_%H-%M-%S.log"),
-    )
-    .unwrap();
-    info!("Initializing daiwa WS server. Populating configuration");
+    logging::setup(&config.log_level, Some("%Y-%m-%d_%H-%M-%S.log"))
+        .expect("logging should be setup");
+
+    info!("Initializing daiwa WS server");
+
+    info!("Connecting to database");
+    let pool = PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&config.postgres_url)
+        .await
+        .expect("PostgreSQL instance should be connected");
+    info!("Connected to database");
+
+    info!("Performing migration if needed");
+    MIGRATOR.run(&pool).await.unwrap_or_default();
+    info!("Migration completed");
 
     info!("Verifying JWKS");
 
@@ -52,9 +66,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         snowflake: Arc::new(Mutex::const_new(Snowflake::new())),
         jwt_utils: Arc::new(JwtUtils::new(config.jwks_url.clone()).await),
         session_manager: Arc::new(Mutex::const_new(SessionManager::new())),
+        pg_pool: Arc::new(pool),
     };
 
-    info!("JWK verified successfully. Setting up Socket.IO layer");
+    info!("JWKS verified successfully. Setting up Socket.IO layer");
 
     let (layer, io) = SocketIoBuilder::new()
         .with_state(state.clone())
@@ -64,7 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Initializing axum server");
 
-    let app: Router<()> = axum::Router::new()
+    let app = axum::Router::new()
         .layer(layer)
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
