@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use chrono::Utc;
+use tokio::time::sleep;
 
 use crate::get_config;
 
@@ -18,14 +21,22 @@ impl Snowflake {
         }
     }
 
-    pub fn next_id(&mut self) -> u128 {
-        let ts = Utc::now().timestamp_millis() as u128;
+    pub async fn next_id(&mut self) -> u128 {
+        let mut ts = Utc::now().timestamp_millis() as u128;
 
         if ts.eq(&self.last_timestamp) {
-            let _ = self.sequence.wrapping_add(1);
+            self.sequence = self.sequence.wrapping_add(1);
+            let seq_mask = (1_u128 << 32) - 1;
+            if (self.sequence & seq_mask) == 0 {
+                sleep(Duration::from_millis(1)).await;
+                ts = Utc::now().timestamp_millis() as u128;
+                self.sequence = 0;
+            }
         } else {
             self.sequence = 0;
         }
+
+        self.last_timestamp = ts;
 
         let ts_128 = ts & ((1_u128 << 64) - 1);
         let mid_128 = self.machine_id & ((1_u128 << 32) - 1);
