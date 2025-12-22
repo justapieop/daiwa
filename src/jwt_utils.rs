@@ -2,7 +2,7 @@ use std::error::Error;
 
 use jsonwebtoken::Validation;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error};
+use tracing::error;
 
 use crate::{config, get_config};
 
