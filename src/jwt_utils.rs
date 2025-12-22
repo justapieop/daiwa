@@ -11,6 +11,7 @@ struct Claims {
     sub: String,
 }
 
+#[derive(Clone)]
 pub struct JwtUtils {
     jwks_client: jwks::Jwks,
     config: config::Config,
@@ -51,7 +52,7 @@ impl JwtUtils {
             Err(e) => {
                 error!("JWT verification failed: {:?}", e);
                 return Err(e.into());
-            },
+            }
         };
 
         Ok(decode.claims.sub)
