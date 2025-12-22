@@ -4,6 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "tls-native-tls",
+    "postgres",
+    "derive",
+    "chrono",
+    "migrate",
+    "rust_decimal",
+] }
 dotenvy = "0.15.7"
 jsonwebtoken = "9.3.1"
 jwks = "0.4.0"
