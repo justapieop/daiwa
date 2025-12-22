@@ -19,7 +19,6 @@ pub struct JwtUtils {
 
 impl JwtUtils {
     pub async fn new(jwks_url: String) -> Self {
-        debug!("Config for JwtUtils: {:?}", get_config());
         Self {
             jwks_client: jwks::Jwks::from_jwks_url(jwks_url)
                 .await
