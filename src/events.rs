@@ -43,10 +43,22 @@ pub async fn on_connect(socket: SocketRef, Extension(ext): Extension<UserData>) 
         },
     );
 
-    socket.on("room_create_request", on_client_room_create_request);
+    socket.on("room_create", on_client_room_create);
+    socket.on("room_leave", on_client_room_leave);
 }
 
-async fn on_client_room_create_request(
+async fn on_client_room_leave(socket: SocketRef, Extension(ext): Extension<UserData>) {
+    info!("User {} leave room request", ext.user_id);
+    if socket.rooms().is_empty() {
+        info!("User {} is not in a room. Cancelling", ext.user_id);
+        socket
+            .emit("not_in_room", "You are currently not in a room")
+            .unwrap_or_default();
+        return;
+    }
+}
+
+async fn on_client_room_create(
     socket: SocketRef,
     Data(data): Data<RoomCreateRequest>,
     State(state): State<AppState>,
