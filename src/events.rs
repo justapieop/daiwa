@@ -43,19 +43,66 @@ pub async fn on_connect(socket: SocketRef, Extension(ext): Extension<UserData>) 
         },
     );
 
-    socket.on("room_create", on_client_room_create);
-    socket.on("room_leave", on_client_room_leave);
+    socket.on("room_create_request", on_client_room_create);
+    socket.on("room_leave_request", on_client_room_leave);
 }
 
-async fn on_client_room_leave(socket: SocketRef, Extension(ext): Extension<UserData>) {
+async fn on_client_room_leave(
+    socket: SocketRef,
+    Extension(ext): Extension<UserData>,
+    State(state): State<AppState>,
+) {
     info!("User {} leave room request", ext.user_id);
-    if socket.rooms().is_empty() {
+    let socket_rooms = socket.rooms().clone();
+
+    if socket_rooms.is_empty() {
         info!("User {} is not in a room. Cancelling", ext.user_id);
         socket
-            .emit("not_in_room", "You are currently not in a room")
+            .emit("err_not_in_room", "You are currently not in a room")
             .unwrap_or_default();
         return;
     }
+
+    let r = match socket_rooms.get(0) {
+        Some(v) => v,
+        None => {
+            socket
+                .emit("err_invalid_room", "Unknown room")
+                .unwrap_or_default();
+            return;
+        }
+    };
+
+    let rid: u128 = match r.parse() {
+        Ok(v) => v,
+        Err(_) => {
+            socket
+                .emit("err_invalid_room", "Unknown room")
+                .unwrap_or_default();
+            return;
+        }
+    };
+
+    socket.leave_all();
+
+    let mut session_manager = state.session_manager.lock().await;
+
+    info!("User {} left room", ext.user_id);
+    let room = match session_manager.get_room(rid) {
+        Some(v) => v.clone(),
+        None => {
+            socket
+                .emit("err_invalid_room", "Unknown room")
+                .unwrap_or_default();
+            return;
+        }
+    };
+
+    if room.player_count.eq(&0) {
+        session_manager.delete_room(room.id);
+    }
+
+    socket.emit("room_leave", "").unwrap_or_default();
 }
 
 async fn on_client_room_create(
@@ -68,7 +115,9 @@ async fn on_client_room_create(
     match data.validate() {
         Ok(_) => {}
         Err(e) => {
-            socket.emit("error", &e.clone()).unwrap_or_default();
+            socket
+                .emit("err_invalid_room_create_data", &e.clone())
+                .unwrap_or_default();
             return;
         }
     }
@@ -77,7 +126,7 @@ async fn on_client_room_create(
         info!("User {} already in a room", ext.user_id);
         socket
             .broadcast()
-            .emit("already_in_room", "You are already in a room")
+            .emit("err_already_in_room", "You are already in a room")
             .await
             .unwrap_or_default();
         return;
@@ -87,11 +136,12 @@ async fn on_client_room_create(
 
     socket.join([id.to_string()]);
 
-    let room = state
-        .session_manager
-        .lock()
-        .await
-        .create_room(id, data.player_number);
+    let room =
+        state
+            .session_manager
+            .lock()
+            .await
+            .create_room(id, ext.user_id.clone(), data.player_number);
 
     let res = serde_json::to_string(&room).unwrap_or_default();
 
@@ -100,7 +150,7 @@ async fn on_client_room_create(
         id, ext.user_id
     );
 
-    socket.emit("room_created", &res).unwrap_or_default();
+    socket.emit("room_create", &res).unwrap_or_default();
 }
 
 pub async fn verify_auth_header(

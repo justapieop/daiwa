@@ -6,11 +6,12 @@ pub struct SessionManager {
     rooms: HashMap<u128, Room>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Room {
-    player_count: u8,
-    slots: u8,
-    id: u128,
+    pub player_count: u8,
+    pub slots: u8,
+    pub id: u128,
+    pub host: String,
 }
 
 impl SessionManager {
@@ -20,15 +21,27 @@ impl SessionManager {
         }
     }
 
-    pub fn create_room(&mut self, id: u128, slots: u8) -> Room {
+    pub fn create_room(&mut self, id: u128, host: String, slots: u8) -> Room {
         let room = &Room {
             player_count: 1,
             slots,
             id,
+            host,
         };
 
-        self.rooms.insert(id, *room);
+        self.rooms.insert(id, room.clone());
 
-        *room
+        room.clone()
+    }
+
+    pub fn get_room(&self, id: u128) -> Option<&Room> {
+        self.rooms.get(&id)
+    }
+
+    pub fn delete_room(&mut self, id: u128) {
+        match self.rooms.remove(&id) {
+            Some(_) => {}
+            None => {}
+        };
     }
 }
